@@ -138,6 +138,10 @@ class Mjpeg extends HookWidget {
               : loading!(context));
     }
 
+    if (image.value != null) {
+      print("image is not null");
+    }
+
     return VisibilityDetector(
       key: key,
       child: Image(
