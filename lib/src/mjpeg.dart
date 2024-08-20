@@ -97,7 +97,12 @@ class Mjpeg extends HookWidget {
 
     useEffect(() {
       errorState.value = null;
-      manager.updateStream(context, image, errorState, onStreamLoaded);
+      manager.updateStream(context, image, errorState);
+
+      if (image.value != null && onStreamLoaded != null) {
+        onStreamLoaded!();
+      }
+    
       return manager.dispose;
     }, [manager]);
 
@@ -187,7 +192,7 @@ class _StreamManager {
   }
 
   void updateStream(BuildContext context, ValueNotifier<MemoryImage?> image,
-      ValueNotifier<List<dynamic>?> errorState, VoidCallback? onStreamLoaded) async {
+      ValueNotifier<List<dynamic>?> errorState) async {
     try {
       final request = Request("GET", Uri.parse(stream));
       request.headers.addAll(headers);
@@ -201,10 +206,6 @@ class _StreamManager {
             if (chunk.first == _eoi) {
               _carry.add(chunk.first);
               _sendImage(context, image, errorState, _carry);
-              if (onStreamLoaded != null) {
-                onStreamLoaded!();
-                onStreamLoaded = null;
-              }
               _carry = [];
               if (!isLive) {
                 dispose();
