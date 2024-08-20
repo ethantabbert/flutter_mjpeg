@@ -129,7 +129,15 @@ class Mjpeg extends HookWidget {
           width: width,
           height: height,
           child: loading == null
-              ? Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: SizedBox(
+                    height: 75,
+                    width: 75,
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFffc425),
+                    ),
+                  ),
+                )
               : loading!(context));
     }
 
