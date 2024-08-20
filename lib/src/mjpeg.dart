@@ -74,6 +74,9 @@ class Mjpeg extends HookWidget {
     final visible = useListenable(state);
     final errorState = useState<List<dynamic>?>(null);
     final isMounted = useIsMounted();
+
+    final key = useMemoized(() => UniqueKey(), [visible.visible]);
+
     final manager = useMemoized(
         () => _StreamManager(
               stream,
@@ -93,7 +96,6 @@ class Mjpeg extends HookWidget {
           preprocessor,
           isMounted
         ]);
-    final key = useMemoized(() => UniqueKey(), [manager]);
 
     final hasCalledCallback = useState(false);
 
