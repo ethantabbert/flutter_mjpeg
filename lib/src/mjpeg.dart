@@ -45,6 +45,7 @@ class Mjpeg extends HookWidget {
   final Duration timeout;
   final WidgetBuilder? loading;
   final Client? httpClient;
+  final VoidCallback? onStreamLoaded;
   final Widget Function(BuildContext contet, dynamic error, dynamic stack)?
       error;
   final Map<String, String> headers;
@@ -62,6 +63,7 @@ class Mjpeg extends HookWidget {
     this.loading,
     this.headers = const {},
     this.preprocessor,
+    this.onStreamLoaded,
     Key? key,
   }) : super(key: key);
 
@@ -95,7 +97,7 @@ class Mjpeg extends HookWidget {
 
     useEffect(() {
       errorState.value = null;
-      manager.updateStream(context, image, errorState);
+      manager.updateStream(context, image, errorState, onStreamLoaded);
       return manager.dispose;
     }, [manager]);
 
@@ -185,7 +187,7 @@ class _StreamManager {
   }
 
   void updateStream(BuildContext context, ValueNotifier<MemoryImage?> image,
-      ValueNotifier<List<dynamic>?> errorState) async {
+      ValueNotifier<List<dynamic>?> errorState, VoidCallback? onStreamLoaded) async {
     try {
       final request = Request("GET", Uri.parse(stream));
       request.headers.addAll(headers);
@@ -199,6 +201,10 @@ class _StreamManager {
             if (chunk.first == _eoi) {
               _carry.add(chunk.first);
               _sendImage(context, image, errorState, _carry);
+              if (onStreamLoaded != null) {
+                onStreamLoaded!();
+                onStreamLoaded = null;
+              }
               _carry = [];
               if (!isLive) {
                 dispose();
