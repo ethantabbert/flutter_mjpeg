@@ -46,7 +46,7 @@ class Mjpeg extends HookWidget {
   final WidgetBuilder? loading;
   final Client? httpClient;
   final VoidCallback? onStreamLoaded;
-  final Widget Function(BuildContext contet, dynamic error, dynamic stack)?
+  final Widget Function(BuildContext context, dynamic error, dynamic stack)?
       error;
   final Map<String, String> headers;
   final MjpegPreprocessor? preprocessor;
@@ -99,8 +99,12 @@ class Mjpeg extends HookWidget {
       errorState.value = null;
       manager.updateStream(context, image, errorState);
 
-      if (image.value != null && onStreamLoaded != null) {
-        onStreamLoaded!();
+      if (image.value != null) {
+        print("image not null, calling onStreamLoaded...");
+        if (onStreamLoaded != null) {
+          print("onStreamLoaded is not null");
+          onStreamLoaded!.call();
+        }
       }
     
       return manager.dispose;
