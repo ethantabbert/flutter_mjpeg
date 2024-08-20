@@ -95,18 +95,11 @@ class Mjpeg extends HookWidget {
         ]);
     final key = useMemoized(() => UniqueKey(), [manager]);
 
+    final hasCalledCallback = useState(false);
+
     useEffect(() {
       errorState.value = null;
       manager.updateStream(context, image, errorState);
-
-      if (image.value != null) {
-        print("image not null, calling onStreamLoaded...");
-        if (onStreamLoaded != null) {
-          print("onStreamLoaded is not null");
-          onStreamLoaded!.call();
-        }
-      }
-    
       return manager.dispose;
     }, [manager]);
 
@@ -138,8 +131,11 @@ class Mjpeg extends HookWidget {
               : loading!(context));
     }
 
-    if (image.value != null) {
-      print("image is not null");
+    if (image.value != null && !hasCalledCallback.value) {
+      if (onStreamLoaded != null) {
+        onStreamLoaded!();
+      }
+      hasCalledCallback.value = true;
     }
 
     return VisibilityDetector(
