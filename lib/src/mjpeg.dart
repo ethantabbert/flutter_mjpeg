@@ -43,6 +43,7 @@ class Mjpeg extends HookWidget {
   final double? height;
   final bool isLive;
   final Duration timeout;
+  final Duration frameTimeout;
   final WidgetBuilder? loading;
   final Client? httpClient;
   final VoidCallback? onStreamLoaded;
@@ -56,6 +57,7 @@ class Mjpeg extends HookWidget {
     this.isLive = false,
     this.width,
     this.timeout = const Duration(seconds: 5),
+    this.frameTimeout = const Duration(seconds: 3),
     this.height,
     this.fit,
     required this.stream,
@@ -81,6 +83,7 @@ class Mjpeg extends HookWidget {
               isLive && visible.visible,
               headers,
               timeout,
+              frameTimeout,
               httpClient ?? Client(),
               preprocessor ?? MjpegPreprocessor(),
               isMounted,
@@ -90,6 +93,7 @@ class Mjpeg extends HookWidget {
           isLive,
           visible.visible,
           timeout,
+          frameTimeout,
           httpClient,
           preprocessor,
           isMounted
@@ -174,6 +178,8 @@ class _StreamManager {
   final String stream;
   final bool isLive;
   final Duration _timeout;
+  final Duration _frameTimeout;
+  Timer? _frameTimeoutTimer;
   final Map<String, String> headers;
   final Client _httpClient;
   final MjpegPreprocessor _preprocessor;
@@ -181,10 +187,19 @@ class _StreamManager {
   // ignore: cancel_subscriptions
   StreamSubscription? _subscription;
 
-  _StreamManager(this.stream, this.isLive, this.headers, this._timeout,
-      this._httpClient, this._preprocessor, this._mounted);
+  _StreamManager(
+    this.stream,
+    this.isLive,
+    this.headers,
+    this._timeout,
+    this._frameTimeout,
+    this._httpClient,
+    this._preprocessor,
+    this._mounted,
+  );
 
   Future<void> dispose() async {
+    _frameTimeoutTimer?.cancel();
     if (_subscription != null) {
       await _subscription!.cancel();
       _subscription = null;
@@ -192,9 +207,25 @@ class _StreamManager {
     _httpClient.close();
   }
 
+  void _onFrameTimeout(ValueNotifier<List<dynamic>?> errorState,
+      ValueNotifier<MemoryImage?> image) {
+    if (_mounted()) {
+      errorState.value = ['Connection lost: Frame timeout', StackTrace.current];
+      image.value = null;
+      dispose();
+    }
+  }
+
+  void _resetFrameTimeout(ValueNotifier<List<dynamic>?> errorState,
+      ValueNotifier<MemoryImage?> image) {
+    _frameTimeoutTimer?.cancel();
+    _frameTimeoutTimer =
+        Timer(_frameTimeout, () => _onFrameTimeout(errorState, image));
+  }
+
   void _sendImage(BuildContext context, ValueNotifier<MemoryImage?> image,
-      ValueNotifier<dynamic> errorState, List<int> chunks) async {
-    // pass image through preprocessor sending to [Image] for rendering
+      ValueNotifier<List<dynamic>?> errorState, List<int> chunks) async {
+    // Pass image through preprocessor and send to [Image] for rendering
     final List<int>? imageData = _preprocessor.process(chunks);
     if (imageData == null) return;
 
@@ -202,6 +233,7 @@ class _StreamManager {
     if (_mounted()) {
       errorState.value = null;
       image.value = imageMemory;
+      _resetFrameTimeout(errorState, image);
     }
   }
 
@@ -210,10 +242,11 @@ class _StreamManager {
     try {
       final request = Request("GET", Uri.parse(stream));
       request.headers.addAll(headers);
-      final response = await _httpClient.send(request).timeout(
-          _timeout); //timeout is to prevent process to hang forever in some case
+      final response = await _httpClient.send(request).timeout(_timeout);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        _resetFrameTimeout(errorState, image);
+
         var _carry = <int>[];
         _subscription = response.stream.listen((chunk) async {
           if (_carry.isNotEmpty && _carry.last == _trigger) {
@@ -258,6 +291,15 @@ class _StreamManager {
             }
           } catch (ex) {}
           dispose();
+        }, onDone: () {
+          if (_mounted()) {
+            errorState.value = [
+              'Stream closed unexpectedly',
+              StackTrace.current
+            ];
+            image.value = null;
+          }
+          dispose();
         }, cancelOnError: true);
       } else {
         if (_mounted()) {
@@ -270,7 +312,7 @@ class _StreamManager {
         dispose();
       }
     } catch (error, stack) {
-      // we ignore those errors in case play/pause is triggers
+      // Ignore certain errors related to connection headers
       if (!error
           .toString()
           .contains('Connection closed before full header was received')) {
@@ -279,6 +321,7 @@ class _StreamManager {
           image.value = null;
         }
       }
+      dispose();
     }
   }
 }
