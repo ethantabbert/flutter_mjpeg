@@ -36,7 +36,7 @@ class MjpegPreprocessor {
 }
 
 /// An Mjpeg.
-class Mjpeg extends HookWidget {
+class MjpegVermeer extends HookWidget {
   final String stream;
   final BoxFit? fit;
   final double? width;
@@ -52,7 +52,7 @@ class Mjpeg extends HookWidget {
   final Map<String, String> headers;
   final MjpegPreprocessor? preprocessor;
 
-  const Mjpeg({
+  const MjpegVermeer({
     this.httpClient,
     this.isLive = false,
     this.width,

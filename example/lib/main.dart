@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_mjpeg/flutter_mjpeg.dart';
+import 'package:flutter_mjpeg_vermeer/flutter_mjpeg.dart';
 
 void main() => runApp(MyApp());
 
@@ -29,15 +29,16 @@ class MyHomePage extends HookWidget {
         children: <Widget>[
           Expanded(
             child: Center(
-              child: Mjpeg(
+              child: MjpegVermeer(
                 isLive: isRunning.value,
                 error: (context, error, stack) {
                   print(error);
                   print(stack);
-                  return Text(error.toString(), style: TextStyle(color: Colors.red));
+                  return Text(error.toString(),
+                      style: TextStyle(color: Colors.red));
                 },
                 stream:
-                'http://uk.jokkmokk.jp/photo/nr4/latest.jpg', //'http://192.168.1.37:8081',
+                    'http://uk.jokkmokk.jp/photo/nr4/latest.jpg', //'http://192.168.1.37:8081',
               ),
             ),
           ),
