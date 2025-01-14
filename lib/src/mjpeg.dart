@@ -348,7 +348,10 @@ class MjpegVermeer2 extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    cancelable = workerManager.executeGentleWithPort<int, Uint8List>(
+    final image = useState<MemoryImage?>(null);
+    final state = useMemoized(() => _MjpegStateNotifier());
+    final visible = useListenable(state);
+    cancelable = workerManager.executeGentleWithPort<int, List<int>>(
         (SendPort sendPort, _isCanceled) async {
       var client = Client();
       var request = Request('GET', Uri.parse(stream));
@@ -365,7 +368,7 @@ class MjpegVermeer2 extends HookWidget {
             if (_carry.isNotEmpty && _carry.last == _trigger) {
               if (chunk.first == _eoi) {
                 _carry.add(chunk.first);
-                sendPort.send(Uint8List.fromList(_carry));
+                sendPort.send(_carry);
                 _carry = [];
                 // if (!isLive) {
                 //   dispose();
@@ -384,7 +387,7 @@ class MjpegVermeer2 extends HookWidget {
                 _carry.add(d);
                 _carry.add(d1);
 
-                sendPort.send(Uint8List.fromList(_carry));
+                sendPort.send(_carry);
 
                 _carry = [];
                 // if (!isLive) {
@@ -410,11 +413,11 @@ class MjpegVermeer2 extends HookWidget {
         await Future.delayed(Duration(milliseconds: 100));
       }
       return 1;
-    }, onMessage: (Uint8List data) {}, priority: WorkPriority.immediately);
+    }, onMessage: (List<int> data) {
+      Uint8List.fromList(data);
+      image.value = MemoryImage(Uint8List.fromList(data));
+    }, priority: WorkPriority.immediately);
 
-    final image = useState<MemoryImage?>(null);
-    final state = useMemoized(() => _MjpegStateNotifier());
-    final visible = useListenable(state);
     if (image.value != null) {
       return Image(
         image: image.value!,
