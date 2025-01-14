@@ -406,6 +406,10 @@ class MjpegVermeer2 extends HookWidget {
           },
         );
       }
+      while (!_isCanceled()) {
+        await Future.delayed(Duration(milliseconds: 100));
+      }
+      return 1;
     }, onMessage: (Uint8List data) {}, priority: WorkPriority.immediately);
 
     final image = useState<MemoryImage?>(null);
