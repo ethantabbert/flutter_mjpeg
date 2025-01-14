@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:http/http.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:worker_manager/worker_manager.dart';
 
 class _MjpegStateNotifier extends ChangeNotifier {
   bool _mounted = true;
@@ -322,6 +323,106 @@ class _StreamManager {
         }
       }
       dispose();
+    }
+  }
+}
+
+class MjpegVermeer2 extends HookWidget {
+  late Cancelable<int> cancelable;
+
+  final String stream;
+  late StreamSubscription _subscription;
+  static const _trigger = 0xFF;
+  static const _soi = 0xD8;
+  static const _eoi = 0xD9;
+
+  MjpegVermeer2({required this.stream});
+
+  void dispose() {
+    cancelable.cancel();
+  }
+
+  bool _isCanceled() {
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    cancelable = workerManager.executeGentleWithPort<int, Uint8List>(
+        (SendPort sendPort, _isCanceled) async {
+      var client = Client();
+      var request = Request('GET', Uri.parse(stream));
+
+      var response = await client.send(request);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        var _carry = <int>[];
+
+        _subscription = response.stream.listen(
+          (chunk) async {
+            if (_isCanceled()) {
+              await _subscription.cancel();
+            }
+            if (_carry.isNotEmpty && _carry.last == _trigger) {
+              if (chunk.first == _eoi) {
+                _carry.add(chunk.first);
+                sendPort.send(Uint8List.fromList(_carry));
+                _carry = [];
+                // if (!isLive) {
+                //   dispose();
+                // }
+              }
+            }
+
+            for (var i = 0; i < chunk.length - 1; i++) {
+              final d = chunk[i];
+              final d1 = chunk[i + 1];
+
+              if (d == _trigger && d1 == _soi) {
+                _carry = [];
+                _carry.add(d);
+              } else if (d == _trigger && d1 == _eoi && _carry.isNotEmpty) {
+                _carry.add(d);
+                _carry.add(d1);
+
+                sendPort.send(Uint8List.fromList(_carry));
+
+                _carry = [];
+                // if (!isLive) {
+                //   dispose();
+                // }
+              } else if (_carry.isNotEmpty) {
+                _carry.add(d);
+                if (i == chunk.length - 2) {
+                  _carry.add(d1);
+                }
+              }
+            }
+          },
+          onError: (error, stack) {
+            print('error: $error');
+          },
+          onDone: () {
+            print("done");
+          },
+        );
+      }
+    }, onMessage: (Uint8List data) {}, priority: WorkPriority.immediately);
+
+    final image = useState<MemoryImage?>(null);
+    final state = useMemoized(() => _MjpegStateNotifier());
+    final visible = useListenable(state);
+    if (image.value != null) {
+      return Image(
+        image: image.value!,
+        width: 400,
+        height: 400,
+        gaplessPlayback: true,
+        fit: BoxFit.cover,
+      );
+    } else {
+      return Center(
+        child: CircularProgressIndicator(),
+      );
     }
   }
 }
