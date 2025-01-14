@@ -368,7 +368,7 @@ class MjpegVermeer2 extends HookWidget {
             if (_carry.isNotEmpty && _carry.last == _trigger) {
               if (chunk.first == _eoi) {
                 _carry.add(chunk.first);
-                sendPort.send(_carry);
+                sendPort.send(List.from(_carry));
                 _carry = [];
                 // if (!isLive) {
                 //   dispose();
@@ -387,7 +387,7 @@ class MjpegVermeer2 extends HookWidget {
                 _carry.add(d);
                 _carry.add(d1);
 
-                sendPort.send(_carry);
+                sendPort.send(List.from(_carry));
 
                 _carry = [];
                 // if (!isLive) {
