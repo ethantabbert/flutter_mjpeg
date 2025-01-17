@@ -32,7 +32,7 @@ class _MjpegStateNotifier extends ChangeNotifier {
 
 /// A preprocessor for each JPEG frame from an MJPEG stream.
 class MjpegPreprocessor {
-  List<int>? process(List<int> frame) => frame;
+  Future<List<int>?> process(List<int> frame) async => frame;
 }
 
 /// An Mjpeg.
@@ -223,10 +223,12 @@ class _StreamManager {
         Timer(_frameTimeout, () => _onFrameTimeout(errorState, image));
   }
 
-  void _sendImage(BuildContext context, ValueNotifier<MemoryImage?> image,
-      ValueNotifier<List<dynamic>?> errorState, List<int> chunks) async {
-    // Pass image through preprocessor and send to [Image] for rendering
-    final List<int>? imageData = _preprocessor.process(chunks);
+  Future<void> _sendImage(
+      BuildContext context,
+      ValueNotifier<MemoryImage?> image,
+      ValueNotifier<List<dynamic>?> errorState,
+      List<int> chunks) async {
+    final List<int>? imageData = await _preprocessor.process(chunks);
     if (imageData == null) return;
 
     final imageMemory = MemoryImage(Uint8List.fromList(imageData));
@@ -252,7 +254,7 @@ class _StreamManager {
           if (_carry.isNotEmpty && _carry.last == _trigger) {
             if (chunk.first == _eoi) {
               _carry.add(chunk.first);
-              _sendImage(context, image, errorState, _carry);
+              await _sendImage(context, image, errorState, _carry);
               _carry = [];
               if (!isLive) {
                 dispose();
@@ -271,7 +273,7 @@ class _StreamManager {
               _carry.add(d);
               _carry.add(d1);
 
-              _sendImage(context, image, errorState, _carry);
+              await _sendImage(context, image, errorState, _carry);
               _carry = [];
               if (!isLive) {
                 dispose();
